@@ -12,13 +12,12 @@ ALLEGRO_EVENT_QUEUE *event_queue = NULL;
 ALLEGRO_FONT *font = NULL;
 
 #define TEXT_COLOR 255, 255, 255
-#define TEXT_SIZE 17
+#define TEXT_SIZE 15
 
 int expression_check(char expr[]);
 int solveForX(char expr[], double *resultvalue);
 int allegro_initialization(int widht, int height);
-int draw_empty_chart(int X_axis_place, int Y_axis_place, int winXsize, int winYsize);
-
+int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale);
 char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", ")", "(", "x", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", NULL};
 
 int main()
@@ -51,10 +50,17 @@ int main()
 	int window_height = 600;
 	allegro_initialization(window_widht+250, window_height);
 	ALLEGRO_EVENT ev;
-	draw_empty_chart(window_widht/2, window_height/2, window_widht, window_height);
 
-	//int Xscale = 10;
-	//int Yscale = 10;
+	int Y_axis_coord = window_widht / 2;
+	int X_axis_coord = window_height / 2;
+	//int Xpixels = window_widht-MARGIN-MARGIN; //that long is the X axis
+	//int YpixelsAboveXaxis;	// this many pixels are useful above Y axis
+	int Xscale = 10;
+	int Yscale = 10;
+	draw_empty_chart(Y_axis_coord, X_axis_coord, window_widht, window_height, Xscale, Yscale);
+//////					this ^			and this ^  should be coordinates of X and Y axes
+	//int YpixelsBelowXaxis = window_height-MARGIN-MARGIN-YpixelsAboveXaxis; //number of possible pixels below Y axis
+
 
 	while(1)
 	{
@@ -65,18 +71,28 @@ int main()
 	return 0;
 }
 
-
-
-int draw_empty_chart(int X_axis_place, int Y_axis_place, int winXsize, int winYsize)
+int draw_empty_chart(int Y_axis_coord, int X_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale)
 {
 #define MARGIN 20
 	al_clear_to_color(al_map_rgb(0,0,20));
-	al_draw_filled_rectangle(MARGIN, MARGIN, winXsize-MARGIN, winYsize-MARGIN, al_map_rgb(0,0,20));
-	al_draw_line(X_axis_place, MARGIN, X_axis_place, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);
-	al_draw_line(MARGIN, Y_axis_place, winXsize-MARGIN, Y_axis_place, al_map_rgb(255, 255, 255), 1);
-	al_draw_filled_triangle(X_axis_place, MARGIN, X_axis_place-5, MARGIN+8, X_axis_place+5, MARGIN+8, al_map_rgb(255, 255, 255));
-	al_draw_filled_triangle(winXsize-MARGIN, Y_axis_place, winXsize-MARGIN-8, Y_axis_place-5, winXsize-MARGIN-8, Y_axis_place+5, al_map_rgb(255, 255, 255));
+	al_draw_filled_rectangle(0, 0, winXsize, winYsize, al_map_rgb(0,0,30));
+	al_draw_line(Y_axis_coord, MARGIN, Y_axis_coord, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);
+	al_draw_line(MARGIN, X_axis_coord, winXsize-MARGIN, X_axis_coord, al_map_rgb(255, 255, 255), 1);
+	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));
+	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));
 	al_flip_display();
+	//*YaboveX = X_axis_coord-MARGIN;
+	//draw X scale to the left, and later right
+	int dist = X_axis_coord - MARGIN; //positive distance
+	double freq = winXsize / (Xscale*2);
+	//int pos = (MARGIN - Y_axis_coord);
+	for(int pos = Y_axis_coord; pos >= MARGIN; pos--)
+	{
+		al_draw_pixel(pos, X_axis_coord+5, al_map_rgb(255, 0, 0));
+		if(pos % (int)freq <= 1) //this doesn't work
+			al_draw_line(Y_axis_coord-pos, X_axis_coord+3, Y_axis_coord-pos, X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
+		al_flip_display();
+	}
 	return 0;
 }
 
