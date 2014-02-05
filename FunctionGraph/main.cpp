@@ -16,7 +16,9 @@ ALLEGRO_FONT *font = NULL;
 
 int expression_check(char expr[]);
 int solveForX(char expr[], double *resultvalue);
-int allegro_initialization();
+int allegro_initialization(int widht, int height);
+int draw_empty_chart(int X_axis_place, int Y_axis_place, int winXsize, int winYsize);
+
 char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", ")", "(", "x", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", NULL};
 
 int main()
@@ -25,16 +27,13 @@ int main()
 	char end = 0;
 	printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub literke q by zakonczyc\n");
 	printf("Enter expression to draw ex. sin(x) with one variable x or letter q to quit\n");
-	printf("----------------------------------------------------------------------------\nYou can use: ");
+	printf("You can use: \n");
 	for(int i=1; Allowedstrings[i] != NULL; i++)
-	{
 		printf("%s ", Allowedstrings[i]);
-	}
 	printf("\n");
 
 	while(1)
 	{
-
 		printf("y = ");
 		fgets(expr, 1023, stdin);
 		printf("\n");
@@ -47,9 +46,37 @@ int main()
 			continue;
 		else
 			break;
-	
-		//allegro_initialization();
 	}
+	int window_widht = 800; //REAL SIZE OF WINDOW IS GREATER by the constant value given in allegro_initialization() call
+	int window_height = 600;
+	allegro_initialization(window_widht+250, window_height);
+	ALLEGRO_EVENT ev;
+	draw_empty_chart(window_widht/2, window_height/2, window_widht, window_height);
+
+	//int Xscale = 10;
+	//int Yscale = 10;
+
+	while(1)
+	{
+		al_wait_for_event(event_queue, &ev);
+		if(ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE || (ev.type == ALLEGRO_EVENT_KEY_DOWN && (ev.keyboard.keycode == ALLEGRO_KEY_Q || ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)))
+			return 0;  //exit program
+	}
+	return 0;
+}
+
+
+
+int draw_empty_chart(int X_axis_place, int Y_axis_place, int winXsize, int winYsize)
+{
+#define MARGIN 20
+	al_clear_to_color(al_map_rgb(0,0,20));
+	al_draw_filled_rectangle(MARGIN, MARGIN, winXsize-MARGIN, winYsize-MARGIN, al_map_rgb(0,0,20));
+	al_draw_line(X_axis_place, MARGIN, X_axis_place, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);
+	al_draw_line(MARGIN, Y_axis_place, winXsize-MARGIN, Y_axis_place, al_map_rgb(255, 255, 255), 1);
+	al_draw_filled_triangle(X_axis_place, MARGIN, X_axis_place-5, MARGIN+8, X_axis_place+5, MARGIN+8, al_map_rgb(255, 255, 255));
+	al_draw_filled_triangle(winXsize-MARGIN, Y_axis_place, winXsize-MARGIN-8, Y_axis_place-5, winXsize-MARGIN-8, Y_axis_place+5, al_map_rgb(255, 255, 255));
+	al_flip_display();
 	return 0;
 }
 
@@ -84,7 +111,7 @@ int expression_check(char expr[])
 	return possibly_incorrect_chars_counter;
 }
 
-int allegro_initialization()
+int allegro_initialization(int widht, int height)
 {
 	if(!al_init()) 
 	{
@@ -95,7 +122,7 @@ int allegro_initialization()
 	else
 		printf("Allegro initialized\n");
 
-	display = al_create_display(800, 600);
+	display = al_create_display(widht, height);
 	if(!display) 
 	{
 		al_show_native_message_box(display, "Error", "Error", "failed to create display!", NULL, ALLEGRO_MESSAGEBOX_ERROR);
@@ -134,7 +161,7 @@ int allegro_initialization()
 	ALLEGRO_EVENT ev;
  
 	al_init_primitives_addon();
-	al_clear_to_color(al_map_rgb(0,0,20));
-	al_flip_display();
+	//al_clear_to_color(al_map_rgb(0,0,20));
+	//al_flip_display();
 	return 0;
 }
