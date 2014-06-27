@@ -454,33 +454,35 @@ int solveForX(char expr[], double *resultvalue, double argument)
 	trimspaces(expr);
 	//translating X into argument value
 	char exprtemp[1024] = {NULL};
+	char exprtemp2[1024] = {NULL};
+	strcpy(exprtemp2, expr);
 	char *where_var_is_in_expr = NULL;
-	while(where_var_is_in_expr = strstr(expr, "x"))
+	while(where_var_is_in_expr = strstr(exprtemp2, "x"))
 	{
-		printf(":%s\n", expr);
-		strcpy(exprtemp, expr);
+		//printf(":%s\n", exprtemp2);
+		strcpy(exprtemp, exprtemp2);
 		char *where_rest_of_expr_is = strstr(exprtemp, "x") + 1 ;
 		sprintf(where_var_is_in_expr, "(%f)", argument);	// place double where X is.
-		strcat(expr, where_rest_of_expr_is);				//append rest od expression from backup
+		strcat(exprtemp2, where_rest_of_expr_is);				//append rest od expression from backup
 	}
-	while(where_var_is_in_expr = strstr(expr, "e"))
-	{
-		printf(":%s\n", expr);
-		strcpy(exprtemp, expr);
-		char *where_rest_of_expr_is = strstr(exprtemp, "e") + 1 ;
-		sprintf(where_var_is_in_expr, "(%f)", 2.718282);	// switch e for its value
-		strcat(expr, where_rest_of_expr_is);				//append rest od expression from backup
-	}
-	printf(":%s\n", expr);
-	if (expr[0]==0) //expression is empty
+	//while(where_var_is_in_expr = strstr(exprtemp2, "e"))
+	//{
+	//	//printf(":%s\n", exprtemp2);
+	//	strcpy(exprtemp, exprtemp2);
+	//	char *where_rest_of_expr_is = strstr(exprtemp, "e") + 1 ;
+	//	sprintf(where_var_is_in_expr, "(%f)", 2.718282);	// switch e for its value
+	//	strcat(exprtemp2, where_rest_of_expr_is);				//append rest od expression from backup
+	//}
+	//printf(":%s\n", exprtemp2);
+	if (exprtemp2[0]==0) //expression is empty
 		return E_EMPTY;
 
-    ec = evaluate( expr, &result, &a );
+    ec = evaluate( exprtemp2, &result, &a );
 
 	if (ec == E_OK)
 	{
 		*resultvalue = result;
-		printf("Result = %f\n\n",result);
+		printf("arg = %f, val = %f\n\n",argument, result);
 	}
 	else
 		if (ec == E_EMPTY)

@@ -14,12 +14,76 @@ ALLEGRO_FONT *font_scale = NULL;
 
 #define TEXT_COLOR 255, 255, 255
 #define TEXT_SIZE 15
+#define MARGIN 30
 
 int expression_check(char expr[]);
 int solveForX(char expr[], double *resultvalue, double argument);
 int allegro_initialization(int widht, int height);
 int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale);
 char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", "x", "pi", "e", NULL};
+
+class Coordinate_system
+{
+private:
+	int Y_axis_coord;
+	int X_axis_coord;
+	int Xscale;	// unit bar every this amount of pixels
+	int Yscale;
+	double max_visible_value;
+	double min_visible_value;
+	double graph_height;
+
+public:
+	Coordinate_system(int Yac, int Xac, int Xs, int Ys, int graphheight)
+	{
+		Y_axis_coord = Yac;
+		X_axis_coord = Xac;
+		Xscale = Xs;
+		Yscale = Ys;
+		graph_height = graphheight;
+		max_visible_value = (X_axis_coord/*-MARGIN*/)*1.0/Yscale;
+		min_visible_value = (graph_height/*-MARGIN*/-X_axis_coord)*(-1.0/Yscale);
+		printf("done\n");
+	}
+
+	int read_axis_coord(char which_axis)
+	{
+		if(which_axis == 'x')
+			return X_axis_coord;
+		else if(which_axis == 'y')
+			return Y_axis_coord;
+		else
+			return -1;
+	}
+
+	int read_scale_of_axis(char which_axis)
+	{
+				if(which_axis == 'x')
+			return Xscale;
+		else if(which_axis == 'y')
+			return Yscale;
+		else
+			return -1;
+	}
+
+	double calculate_diff_between_pixels_on_X_axis()
+	{
+		return 1.0/(double)Xscale;	//Xscale describes number of pixels between bars, 
+	}
+
+	//change scale()
+
+	int draw_function_line(int x1, double x1_value, int x2, double x2_value)
+	{
+		if(x1_value >= MARGIN && x1_value <= graph_height - MARGIN
+			&& x2_value >= MARGIN && x2_value <= graph_height - MARGIN)
+			//al_draw_pixel(x1, x1_value, al_map_rgb(255, 200, 200));
+			al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
+		al_flip_display();
+		return 0;
+	}
+
+};
 
 int main()
 {
@@ -29,7 +93,7 @@ int main()
 	printf("You can use: \n");
 	for(int i=1; Allowedstrings[i] != NULL; i++)
 		printf("%s ", Allowedstrings[i]);
-	printf("\nUse * when multiplicating or it will not work. 2(x) is bad, 2*(x) is good.\n");
+	printf("\nUse * when multiplicating or it will not work. 2x is bad, 2*x is good.\n");
 
 	do
 	{
@@ -37,26 +101,42 @@ int main()
 		fgets(expr, 1023, stdin);
 		printf("\n");
 		//strcat(expr, "2+2*sin(x)\n");
-
+		//strcat(expr, "2*x\n");
+		
 		if(expr[0] == 'q')
 			return 0;
-	}
-	while(expression_check(expr));
-	double bbbb = 0;
-	solveForX(expr, &bbbb, 1.234);
-	return 0;
+	} while(expression_check(expr));
 
 	int graph_area_widht = 800;
 	int graph_area_height = 600;
+	Coordinate_system coord_system(graph_area_widht / 2, graph_area_height / 2, 30, 30, graph_area_height);
+
 #define EXTRA_DATA_AREA_ON_RIGHT_SIDE 250
 	allegro_initialization( graph_area_widht+EXTRA_DATA_AREA_ON_RIGHT_SIDE, graph_area_height );
 	ALLEGRO_EVENT ev;
 
-	int Y_axis_coord = graph_area_widht / 2;
-	int X_axis_coord = graph_area_height / 2;
-	int Xscale = 30;	// unit bar every this amount of pixels
-	int Yscale = 30;
-	draw_empty_chart(X_axis_coord, Y_axis_coord, graph_area_widht, graph_area_height, Xscale, Yscale);
+	draw_empty_chart(coord_system.read_axis_coord('x'), coord_system.read_axis_coord('y'), graph_area_widht, graph_area_height, coord_system.read_scale_of_axis('x'), coord_system.read_scale_of_axis('y'));
+
+	//DRAWING OF MAIN FUNCTION - from orygin to the left, then to the right
+	double last_value, current_value;
+	solveForX(expr, &last_value, 0.0);
+	double pixel_unit = coord_system.calculate_diff_between_pixels_on_X_axis();
+	for(int arg_px=-1; arg_px>(-(coord_system.read_axis_coord('y'))); arg_px--)
+	{
+		solveForX(expr, &current_value, (double)arg_px*pixel_unit);
+		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px+1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
+		last_value = current_value;
+		al_flip_display();
+	}
+	solveForX(expr, &last_value, 0.0);
+	for(int arg_px=1; arg_px < graph_area_widht - coord_system.read_axis_coord('y'); arg_px++)
+	{
+		solveForX(expr, &current_value, (double)arg_px*pixel_unit);
+		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px+1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
+		last_value = current_value;
+	//	al_flip_display();
+	}
+	al_flip_display();
 
 	while(1)
 	{
@@ -76,33 +156,29 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 	al_draw_line(MARGIN, X_axis_coord, winXsize-MARGIN, X_axis_coord, al_map_rgb(255, 255, 255), 1);	// X axis
 	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));	// arrowhead Y axis
 	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));	// arrowhead X axis
+	//al_draw_text(font, al_map_rgb(255, 200, 200), 5, 5, 0, expr);
 	al_flip_display();
 
-#define MARGIN 30	// to avoid drawing bars on arrowheads
-	int freq = (int)(/*winXsize / */(Xscale));
+	int freq = (int)(Xscale);
 	int pos = 0;
-	long bar_number = 0;
-	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos >= MARGIN; pos--)	//bars - negative X axis
+	int bar_number = 0;
+	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos >= MARGIN+10; pos--)	//bars - negative X axis
 	{
 		if(pos % freq < 1)
-			al_draw_line(pos+(Y_axis_coord%freq), X_axis_coord+3, pos+(Y_axis_coord%freq), X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
+			al_draw_line(pos+(Y_axis_coord%freq), X_axis_coord+3, pos+(Y_axis_coord%freq), X_axis_coord-3, al_map_rgb(255, 255, 255), 1);
 	}
-	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos <= winXsize-MARGIN; pos++)	// bars - positive X axis
+	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos <= winXsize-MARGIN+10; pos++)	// bars - positive X axis
 	{
 		if(pos % freq < 1)
 		{
 			al_draw_line(pos+(Y_axis_coord%freq), X_axis_coord+3, pos+(Y_axis_coord%freq), X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
 			bar_number++;
 			if(bar_number == 2)
-			{
 				al_draw_text(font_scale, al_map_rgb(255, 255, 255), pos+(Y_axis_coord%freq), X_axis_coord+5, 0, "1");
-
-			}
 		}
-
 	}
 	bar_number = 0;
-	for(pos = X_axis_coord-(X_axis_coord%freq); pos >= MARGIN; pos--)	// bars - positive Y axis
+	for(pos = X_axis_coord-(X_axis_coord%freq); pos >= MARGIN+10; pos--)	// bars - positive Y axis
 	{
 		if(pos % freq < 1)
 		{
@@ -116,7 +192,7 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 		}
 
 	}
-	for(pos = X_axis_coord-(X_axis_coord%freq); pos <= winYsize-MARGIN; pos++)	// bars - negative Y axis
+	for(pos = X_axis_coord-(X_axis_coord%freq); pos <= winYsize-MARGIN+10; pos++)	// bars - negative Y axis
 	{
 		if(pos % freq < 1)
 			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freq), Y_axis_coord-3, pos+(X_axis_coord%freq), al_map_rgb(255, 255, 255), 1); 
