@@ -35,20 +35,19 @@ VARIABLE Consts[] =
    /* name, value */
    { "pi",      M_PI },
    { "e",       M_E },
-
    { 0 }
 };
 
-double (*fifi)(double);
-int ghjg;
-int rrghr()
-{
-	int uiy;
-
-   fifi = sin;
-   uiy = 9+7;
-   return uiy;
-}
+//double (*fifi)(double);
+//int ghjg;
+//int rrghr()
+//{
+//	int uiy;
+//
+//   fifi = sin;
+//   uiy = 9+7;
+//   return uiy;
+//}
 
 
 FUNCTION Funcs[] =
@@ -473,7 +472,6 @@ int solveForX(char expr[], double *resultvalue, double argument)
 		strcat(expr, where_rest_of_expr_is);				//append rest od expression from backup
 	}
 	printf(":%s\n", expr);
-
 	if (expr[0]==0) //expression is empty
 		return E_EMPTY;
 
@@ -498,6 +496,6 @@ int solveForX(char expr[], double *resultvalue, double argument)
             //printf( "\n%*s^\n", ERPOS, "" );
 		}
 
-	//printf("\nThe end of demonstration.\n\n");
+		//printf("\nThe end of demonstration.\n\n");
 	return -1;
 }

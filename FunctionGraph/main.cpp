@@ -24,13 +24,12 @@ char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "as
 int main()
 {
 	char expr[1024] = {NULL};
-	char end = 0;
-	printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub wpisz literke q by zakonczyc\n");
-	printf("Enter expression to draw  eg. sin(x) with one variable x or type letter q to quit\n");
+	//printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub wpisz literke q by zakonczyc\n");
+	printf("Enter expression to draw  eg. sin(x) with one variable x or type q to quit\n");
 	printf("You can use: \n");
 	for(int i=1; Allowedstrings[i] != NULL; i++)
 		printf("%s ", Allowedstrings[i]);
-	printf("\n");
+	printf("\nUse * when multiplicating or it will not work. 2(x) is bad, 2*(x) is good.\n");
 
 	do
 	{
@@ -40,35 +39,24 @@ int main()
 		//strcat(expr, "2+2*sin(x)\n");
 
 		if(expr[0] == 'q')
-			end = 1;
-		//expression check
-		//if(expression_check(expr))
-		//	continue;
-		//else
-		//	break;
+			return 0;
 	}
 	while(expression_check(expr));
 	double bbbb = 0;
 	solveForX(expr, &bbbb, 1.234);
-	printf("END. value = %f\n", bbbb);
 	return 0;
 
-	int graph_area_widht = 800; //REAL SIZE OF WINDOW IS GREATER by the constant value given in allegro_initialization() call
+	int graph_area_widht = 800;
 	int graph_area_height = 600;
-#define EXTRA_DATA_area_ON_RIGHT_SIDE 250
-	allegro_initialization( graph_area_widht+EXTRA_DATA_area_ON_RIGHT_SIDE, graph_area_height );
+#define EXTRA_DATA_AREA_ON_RIGHT_SIDE 250
+	allegro_initialization( graph_area_widht+EXTRA_DATA_AREA_ON_RIGHT_SIDE, graph_area_height );
 	ALLEGRO_EVENT ev;
 
 	int Y_axis_coord = graph_area_widht / 2;
 	int X_axis_coord = graph_area_height / 2;
-	//int Xpixels = graph_area_widht-MARGIN-MARGIN; //that long is the X axis
-	//int YpixelsAboveXaxis;	// this many pixels are useful above Y axis
 	int Xscale = 30;	// unit bar every this amount of pixels
 	int Yscale = 30;
-	draw_empty_chart(X_axis_coord-100, Y_axis_coord-150, graph_area_widht, graph_area_height, Xscale, Yscale);
-//////					this ^		and this ^  should be coordinates of X and Y axes
-	//int YpixelsBelowXaxis = graph_area_height-MARGIN-MARGIN-YpixelsAboveXaxis; //number of possible pixels below Y axis
-
+	draw_empty_chart(X_axis_coord, Y_axis_coord, graph_area_widht, graph_area_height, Xscale, Yscale);
 
 	while(1)
 	{
@@ -89,8 +77,8 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));	// arrowhead Y axis
 	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));	// arrowhead X axis
 	al_flip_display();
-#define MARGIN 30	// to avoid drawing bard on arrowheads
-	//draw X scale to the left, and later right
+
+#define MARGIN 30	// to avoid drawing bars on arrowheads
 	int freq = (int)(/*winXsize / */(Xscale));
 	int pos = 0;
 	long bar_number = 0;
@@ -133,6 +121,7 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 		if(pos % freq < 1)
 			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freq), Y_axis_coord-3, pos+(X_axis_coord%freq), al_map_rgb(255, 255, 255), 1); 
 	}
+
 	al_flip_display();
 	return 0;
 }
