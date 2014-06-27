@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <setjmp.h>
-#include <string.h>
+#include <string>
 
 #ifdef VAX
 #include <ssdef.h>
@@ -215,10 +215,10 @@ static void Parse (void)
       while( isnumer( *expression ) )
          *t++ = *expression++;
    }
-   else if( isalpha( *expression ) )
+   else if( isalphanum( *expression ) )
    {
       type = VAR;
-      while( isalpha( *expression ) )
+      while( isalphanum( *expression ) )
         *t++ = *expression++;
       token[VARLEN] = 0;
    }
@@ -441,18 +441,39 @@ void trimspaces(char *s) /* remove white spaces at the end */
 }
 
 
-int solveForX(char expr[], double *resultvalue)
+int solveForX(char expr[], double *resultvalue, double argument)
 {
 
 	//char expr[1024];
 	*resultvalue = 1.0;
     double result;
-    int a,ec;
+    int a, ec;
 
 	//printf("Enter an expression: ");
 	//fgets(expr,1024,stdin);
 	//expr[1023]=0;
 	trimspaces(expr);
+	//translating X into argument value
+	char exprtemp[1024] = {NULL};
+	char *where_var_is_in_expr = NULL;
+	while(where_var_is_in_expr = strstr(expr, "x"))
+	{
+		printf(":%s\n", expr);
+		strcpy(exprtemp, expr);
+		char *where_rest_of_expr_is = strstr(exprtemp, "x") + 1 ;
+		sprintf(where_var_is_in_expr, "(%f)", argument);	// place double where X is.
+		strcat(expr, where_rest_of_expr_is);				//append rest od expression from backup
+	}
+	while(where_var_is_in_expr = strstr(expr, "e"))
+	{
+		printf(":%s\n", expr);
+		strcpy(exprtemp, expr);
+		char *where_rest_of_expr_is = strstr(exprtemp, "e") + 1 ;
+		sprintf(where_var_is_in_expr, "(%f)", 2.718282);	// switch e for its value
+		strcat(expr, where_rest_of_expr_is);				//append rest od expression from backup
+	}
+	printf(":%s\n", expr);
+
 	if (expr[0]==0) //expression is empty
 		return E_EMPTY;
 
@@ -478,6 +499,5 @@ int solveForX(char expr[], double *resultvalue)
 		}
 
 	//printf("\nThe end of demonstration.\n\n");
-	return 0;
-};
-
+	return -1;
+}

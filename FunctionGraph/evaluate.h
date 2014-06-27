@@ -28,7 +28,7 @@ typedef struct
 /* The following macros are ASCII dependant, no EBCDIC here! */
 #define iswhite(c)  (c == ' ' || c == '\t')
 #define isnumer(c)  ((c >= '0' && c <= '9') || c == '.')
-#define isalpha(c)  ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') \
+#define isalphanum(c)  ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') \
                     || c == '_')
 #define isdelim(c)  (c == '+' || c == '-' || c == '*' || c == '/' || c == '%' \
                     || c == '^' || c == '(' || c == ')' || c == ',' || c == '=')

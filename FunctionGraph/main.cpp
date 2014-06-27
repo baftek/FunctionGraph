@@ -10,28 +10,29 @@
 ALLEGRO_DISPLAY *display = NULL;
 ALLEGRO_EVENT_QUEUE *event_queue = NULL;
 ALLEGRO_FONT *font = NULL;
+ALLEGRO_FONT *font_scale = NULL;
 
 #define TEXT_COLOR 255, 255, 255
 #define TEXT_SIZE 15
 
 int expression_check(char expr[]);
-int solveForX(char expr[], double *resultvalue);
+int solveForX(char expr[], double *resultvalue, double argument);
 int allegro_initialization(int widht, int height);
 int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale);
-char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", ")", "(", "x", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", NULL};
+char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", "x", "pi", "e", NULL};
 
 int main()
 {
 	char expr[1024] = {NULL};
 	char end = 0;
-	printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub literke q by zakonczyc\n");
-	printf("Enter expression to draw ex. sin(x) with one variable x or letter q to quit\n");
+	printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub wpisz literke q by zakonczyc\n");
+	printf("Enter expression to draw  eg. sin(x) with one variable x or type letter q to quit\n");
 	printf("You can use: \n");
 	for(int i=1; Allowedstrings[i] != NULL; i++)
 		printf("%s ", Allowedstrings[i]);
 	printf("\n");
 
-	while(1)
+	do
 	{
 		printf("y = ");
 		fgets(expr, 1023, stdin);
@@ -41,25 +42,32 @@ int main()
 		if(expr[0] == 'q')
 			end = 1;
 		//expression check
-		if(expression_check(expr))
-			continue;
-		else
-			break;
+		//if(expression_check(expr))
+		//	continue;
+		//else
+		//	break;
 	}
-	int window_widht = 800; //REAL SIZE OF WINDOW IS GREATER by the constant value given in allegro_initialization() call
-	int window_height = 600;
-	allegro_initialization(window_widht+250, window_height);
+	while(expression_check(expr));
+	double bbbb = 0;
+	solveForX(expr, &bbbb, 1.234);
+	printf("END. value = %f\n", bbbb);
+	return 0;
+
+	int graph_area_widht = 800; //REAL SIZE OF WINDOW IS GREATER by the constant value given in allegro_initialization() call
+	int graph_area_height = 600;
+#define EXTRA_DATA_area_ON_RIGHT_SIDE 250
+	allegro_initialization( graph_area_widht+EXTRA_DATA_area_ON_RIGHT_SIDE, graph_area_height );
 	ALLEGRO_EVENT ev;
 
-	int Y_axis_coord = window_widht / 2;
-	int X_axis_coord = window_height / 2;
-	//int Xpixels = window_widht-MARGIN-MARGIN; //that long is the X axis
+	int Y_axis_coord = graph_area_widht / 2;
+	int X_axis_coord = graph_area_height / 2;
+	//int Xpixels = graph_area_widht-MARGIN-MARGIN; //that long is the X axis
 	//int YpixelsAboveXaxis;	// this many pixels are useful above Y axis
-	int Xscale = 10;
-	int Yscale = 10;
-	draw_empty_chart(Y_axis_coord, X_axis_coord, window_widht, window_height, Xscale, Yscale);
-//////					this ^			and this ^  should be coordinates of X and Y axes
-	//int YpixelsBelowXaxis = window_height-MARGIN-MARGIN-YpixelsAboveXaxis; //number of possible pixels below Y axis
+	int Xscale = 30;	// unit bar every this amount of pixels
+	int Yscale = 30;
+	draw_empty_chart(X_axis_coord-100, Y_axis_coord-150, graph_area_widht, graph_area_height, Xscale, Yscale);
+//////					this ^		and this ^  should be coordinates of X and Y axes
+	//int YpixelsBelowXaxis = graph_area_height-MARGIN-MARGIN-YpixelsAboveXaxis; //number of possible pixels below Y axis
 
 
 	while(1)
@@ -71,28 +79,61 @@ int main()
 	return 0;
 }
 
-int draw_empty_chart(int Y_axis_coord, int X_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale)
+int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale)
 {
 #define MARGIN 20
 	al_clear_to_color(al_map_rgb(0,0,20));
-	al_draw_filled_rectangle(0, 0, winXsize, winYsize, al_map_rgb(0,0,30));
-	al_draw_line(Y_axis_coord, MARGIN, Y_axis_coord, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);
-	al_draw_line(MARGIN, X_axis_coord, winXsize-MARGIN, X_axis_coord, al_map_rgb(255, 255, 255), 1);
-	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));
-	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));
+	al_draw_filled_rectangle(0, 0, winXsize, winYsize, al_map_rgb(0,0,30));		// graph background color
+	al_draw_line(Y_axis_coord, MARGIN, Y_axis_coord, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);	// Y axis
+	al_draw_line(MARGIN, X_axis_coord, winXsize-MARGIN, X_axis_coord, al_map_rgb(255, 255, 255), 1);	// X axis
+	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));	// arrowhead Y axis
+	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));	// arrowhead X axis
 	al_flip_display();
-	//*YaboveX = X_axis_coord-MARGIN;
+#define MARGIN 30	// to avoid drawing bard on arrowheads
 	//draw X scale to the left, and later right
-	int dist = X_axis_coord - MARGIN; //positive distance
-	double freq = winXsize / (Xscale*2);
-	//int pos = (MARGIN - Y_axis_coord);
-	for(int pos = Y_axis_coord; pos >= MARGIN; pos--)
+	int freq = (int)(/*winXsize / */(Xscale));
+	int pos = 0;
+	long bar_number = 0;
+	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos >= MARGIN; pos--)	//bars - negative X axis
 	{
-		al_draw_pixel(pos, X_axis_coord+5, al_map_rgb(255, 0, 0));
-		if(pos % (int)freq <= 1) //this doesn't work
-			al_draw_line(Y_axis_coord-pos, X_axis_coord+3, Y_axis_coord-pos, X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
-		al_flip_display();
+		if(pos % freq < 1)
+			al_draw_line(pos+(Y_axis_coord%freq), X_axis_coord+3, pos+(Y_axis_coord%freq), X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
 	}
+	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos <= winXsize-MARGIN; pos++)	// bars - positive X axis
+	{
+		if(pos % freq < 1)
+		{
+			al_draw_line(pos+(Y_axis_coord%freq), X_axis_coord+3, pos+(Y_axis_coord%freq), X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
+			bar_number++;
+			if(bar_number == 2)
+			{
+				al_draw_text(font_scale, al_map_rgb(255, 255, 255), pos+(Y_axis_coord%freq), X_axis_coord+5, 0, "1");
+
+			}
+		}
+
+	}
+	bar_number = 0;
+	for(pos = X_axis_coord-(X_axis_coord%freq); pos >= MARGIN; pos--)	// bars - positive Y axis
+	{
+		if(pos % freq < 1)
+		{
+			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freq), Y_axis_coord-3, pos+(X_axis_coord%freq), al_map_rgb(255, 255, 255), 1); 
+			bar_number++;
+			if(bar_number == 2)
+			{
+			al_draw_text(font_scale, al_map_rgb(255, 255, 255), Y_axis_coord+5, pos+(X_axis_coord%freq), 0, "1");
+
+			}
+		}
+
+	}
+	for(pos = X_axis_coord-(X_axis_coord%freq); pos <= winYsize-MARGIN; pos++)	// bars - negative Y axis
+	{
+		if(pos % freq < 1)
+			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freq), Y_axis_coord-3, pos+(X_axis_coord%freq), al_map_rgb(255, 255, 255), 1); 
+	}
+	al_flip_display();
 	return 0;
 }
 
@@ -101,26 +142,30 @@ int expression_check(char expr[])
 	char *exprdup = strdup(expr); //create duplicate of expression string
 	int possibly_incorrect_chars_counter = strlen(exprdup);
 	for(int i=0; exprdup[i] != NULL; i++)
-		if(exprdup[i] >= '0' && exprdup[i] <= '9') // subtract number of possible incorrect characters
+		if(exprdup[i] >= '0' && exprdup[i] <= '9') // if element is a digit - subtract number of possible incorrect characters
 		{
 			exprdup[i] = 32;
 			possibly_incorrect_chars_counter--;
+
 		}
-	for(int i=0; Allowedstrings[i] != NULL; i++) // for all allowed epressions
+	for(int i=0; Allowedstrings[i] != NULL; i++) // for all allowed expressions
 	{
 		char *strpos = NULL;
-		while(strpos = strstr(exprdup, Allowedstrings[i])) //if they are present in expression
+		while(strpos = strstr(exprdup, Allowedstrings[i])) //is currently searched string in expression?
 		{
-			for(int j = 0; j < strlen(Allowedstrings[i]); j++)
+			for(int j = 0; j < strlen(Allowedstrings[i]); j++) //turn all letters of allowed string to spaces
 			{
-				strpos[0+j] = 32;
+				strpos[j] = 32;
 				possibly_incorrect_chars_counter--;
+				printf("%s\n", exprdup);
 			}
 			strpos = NULL;
 		}	
 	}	
-	if(possibly_incorrect_chars_counter)
-		printf("There is %d incorrect characters in this expression\n", possibly_incorrect_chars_counter);
+	if(possibly_incorrect_chars_counter == 1)
+		printf("There is %d incorrect character in this expression\n%s\n", possibly_incorrect_chars_counter, exprdup);
+	else if(possibly_incorrect_chars_counter > 1)
+		printf("There are %d incorrect characters in this expression\n%s\n", possibly_incorrect_chars_counter, exprdup);
 	else
 		printf("Expression is correct\n");
 
@@ -161,7 +206,8 @@ int allegro_initialization(int widht, int height)
 	al_init_font_addon();
 	al_init_ttf_addon();
 	font = al_load_ttf_font("C:\\Windows\\Fonts\\cour.ttf", TEXT_SIZE, 0);
-	if(!font)
+	font_scale = al_load_ttf_font("C:\\Windows\\Fonts\\cour.ttf", TEXT_SIZE, 0);
+	if(!font || !font_scale)
 	{
 		al_destroy_event_queue(event_queue);
 		al_show_native_message_box(display, "Error", "Error", "Failed to initialize font!", NULL, ALLEGRO_MESSAGEBOX_ERROR);
@@ -169,7 +215,7 @@ int allegro_initialization(int widht, int height)
 		return -1;
 	}
 	else
-		printf("Font installed\n");
+		printf("Fonts installed\n");
 
 	al_install_keyboard();
 	al_register_event_source(event_queue, al_get_display_event_source(display));
