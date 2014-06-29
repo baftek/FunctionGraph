@@ -14,7 +14,7 @@ ALLEGRO_FONT *font_scale = NULL;
 
 #define TEXT_COLOR 255, 255, 255
 #define TEXT_SIZE 15
-#define MARGIN 30
+#define MARGIN 0
 
 int expression_check(char expr[]);
 int solveForX(char expr[], double *resultvalue, double argument);
@@ -77,8 +77,8 @@ public:
 	{
 		if(x1_value >= MARGIN && x1_value <= graph_height - MARGIN
 			&& x2_value >= MARGIN && x2_value <= graph_height - MARGIN)
-			//al_draw_pixel(x1, x1_value, al_map_rgb(255, 200, 200));
-			al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
+			al_draw_pixel(x2, x2_value, al_map_rgb(255, 200, 200));
+			//al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
 		al_flip_display();
 		return 0;
 	}
@@ -98,10 +98,10 @@ int main()
 	do
 	{
 		printf("y = ");
-		fgets(expr, 1023, stdin);
+		//fgets(expr, 1023, stdin);
 		printf("\n");
 		//strcat(expr, "2+2*sin(x)\n");
-		//strcat(expr, "2*x\n");
+		strcat(expr, "x\n");
 		
 		if(expr[0] == 'q')
 			return 0;
@@ -109,9 +109,9 @@ int main()
 
 	int graph_area_widht = 800;
 	int graph_area_height = 600;
-	Coordinate_system coord_system(graph_area_widht / 2, graph_area_height / 2, 30, 30, graph_area_height);
+	Coordinate_system coord_system(graph_area_widht / 2, graph_area_height / 2, 150, 150, graph_area_height);
 
-#define EXTRA_DATA_AREA_ON_RIGHT_SIDE 250
+#define EXTRA_DATA_AREA_ON_RIGHT_SIDE 0
 	allegro_initialization( graph_area_widht+EXTRA_DATA_AREA_ON_RIGHT_SIDE, graph_area_height );
 	ALLEGRO_EVENT ev;
 
@@ -124,7 +124,7 @@ int main()
 	for(int arg_px=-1; arg_px>(-(coord_system.read_axis_coord('y'))); arg_px--)
 	{
 		solveForX(expr, &current_value, (double)arg_px*pixel_unit);
-		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px+1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
+		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px-1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
 		last_value = current_value;
 		al_flip_display();
 	}
@@ -132,7 +132,7 @@ int main()
 	for(int arg_px=1; arg_px < graph_area_widht - coord_system.read_axis_coord('y'); arg_px++)
 	{
 		solveForX(expr, &current_value, (double)arg_px*pixel_unit);
-		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px+1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
+		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px-1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
 		last_value = current_value;
 	//	al_flip_display();
 	}
@@ -149,54 +149,67 @@ int main()
 
 int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale)
 {
-#define MARGIN 20
-	al_clear_to_color(al_map_rgb(0,0,20));
-	al_draw_filled_rectangle(0, 0, winXsize, winYsize, al_map_rgb(0,0,30));		// graph background color
-	al_draw_line(Y_axis_coord, MARGIN, Y_axis_coord, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);	// Y axis
-	al_draw_line(MARGIN, X_axis_coord, winXsize-MARGIN, X_axis_coord, al_map_rgb(255, 255, 255), 1);	// X axis
-	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));	// arrowhead Y axis
-	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));	// arrowhead X axis
-	//al_draw_text(font, al_map_rgb(255, 200, 200), 5, 5, 0, expr);
-	al_flip_display();
+	al_clear_to_color(al_map_rgb(0,0,50));
 
-	int freq = (int)(Xscale);
+	//first long grey unit lines and bars are being drawn, later axes and arrowheads to let them be on top
+	int freqX = (int)(Xscale);
+	int freqY = (int)(Yscale);
 	int pos = 0;
 	int bar_number = 0;
-	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos >= MARGIN+10; pos--)	//bars - negative X axis
+#define AL_GREY al_map_rgb(50, 50, 50)
+	for(pos = Y_axis_coord-(Y_axis_coord%freqX); pos >= MARGIN; pos--)	//bars - negative X axis
 	{
-		if(pos % freq < 1)
-			al_draw_line(pos+(Y_axis_coord%freq), X_axis_coord+3, pos+(Y_axis_coord%freq), X_axis_coord-3, al_map_rgb(255, 255, 255), 1);
+		if(pos % freqX < 1)
+	{
+			al_draw_line(pos+(Y_axis_coord%freqX), 0, pos+(Y_axis_coord%freqX), winYsize, AL_GREY, 1);
+			al_draw_line(pos+(Y_axis_coord%freqX), X_axis_coord+3, pos+(Y_axis_coord%freqX), X_axis_coord-3, al_map_rgb(255, 255, 255), 1);
 	}
-	for(pos = Y_axis_coord-(Y_axis_coord%freq); pos <= winXsize-MARGIN+10; pos++)	// bars - positive X axis
+	}
+	for(pos = Y_axis_coord-(Y_axis_coord%freqX); pos <= winXsize-MARGIN-10; pos++)	// bars - positive X axis
 	{
-		if(pos % freq < 1)
+		if(pos % freqX < 1)
 		{
-			al_draw_line(pos+(Y_axis_coord%freq), X_axis_coord+3, pos+(Y_axis_coord%freq), X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
+			al_draw_line(pos+(Y_axis_coord%freqX), 0, pos+(Y_axis_coord%freqX), winYsize, AL_GREY, 1); 
+			al_draw_line(pos+(Y_axis_coord%freqX), X_axis_coord+3, pos+(Y_axis_coord%freqX), X_axis_coord-3, al_map_rgb(255, 255, 255), 1); 
 			bar_number++;
 			if(bar_number == 2)
-				al_draw_text(font_scale, al_map_rgb(255, 255, 255), pos+(Y_axis_coord%freq), X_axis_coord+5, 0, "1");
+				al_draw_text(font_scale, al_map_rgb(255, 255, 255), pos+(Y_axis_coord%freqX), X_axis_coord+5, 0, "1");
 		}
 	}
 	bar_number = 0;
-	for(pos = X_axis_coord-(X_axis_coord%freq); pos >= MARGIN+10; pos--)	// bars - positive Y axis
+	for(pos = X_axis_coord-(X_axis_coord%freqY); pos >= MARGIN+10; pos--)	// bars - positive Y axis
 	{
-		if(pos % freq < 1)
+		if(pos % freqY < 1)
 		{
-			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freq), Y_axis_coord-3, pos+(X_axis_coord%freq), al_map_rgb(255, 255, 255), 1); 
+			al_draw_line(0, pos+(X_axis_coord%freqY), winXsize, pos+(X_axis_coord%freqY), AL_GREY, 1); 
+			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freqY), Y_axis_coord-3, pos+(X_axis_coord%freqY), al_map_rgb(255, 255, 255), 1); 
 			bar_number++;
 			if(bar_number == 2)
 			{
-			al_draw_text(font_scale, al_map_rgb(255, 255, 255), Y_axis_coord+5, pos+(X_axis_coord%freq), 0, "1");
+			al_draw_text(font_scale, al_map_rgb(255, 255, 255), Y_axis_coord+5, pos+(X_axis_coord%freqY), 0, "1");
 
 			}
 		}
 
 	}
-	for(pos = X_axis_coord-(X_axis_coord%freq); pos <= winYsize-MARGIN+10; pos++)	// bars - negative Y axis
+	for(pos = X_axis_coord-(X_axis_coord%freqY); pos <= winYsize-MARGIN; pos++)	// bars - negative Y axis
 	{
-		if(pos % freq < 1)
-			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freq), Y_axis_coord-3, pos+(X_axis_coord%freq), al_map_rgb(255, 255, 255), 1); 
+		if(pos % freqY < 1)
+	{
+			al_draw_line(0, pos+(X_axis_coord%freqY), winXsize, pos+(X_axis_coord%freqY), AL_GREY, 1); 
+			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freqY), Y_axis_coord-3, pos+(X_axis_coord%freqY), al_map_rgb(255, 255, 255), 1); 
 	}
+	}
+
+	// now axes, arrowheads are being drawn
+	al_draw_line(Y_axis_coord, MARGIN, Y_axis_coord, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);	// Y axis
+	al_draw_line(MARGIN, X_axis_coord, winXsize-MARGIN, X_axis_coord, al_map_rgb(255, 255, 255), 1);	// X axis
+	al_draw_line(Y_axis_coord+Xscale, MARGIN, Y_axis_coord+Xscale, winYsize-MARGIN, al_map_rgb(255, 0, 0), 1);	// Y axis
+	al_draw_line(MARGIN, X_axis_coord-Yscale, winXsize-MARGIN, X_axis_coord-Yscale, al_map_rgb(255, 0, 0), 1);	// X axis
+	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));	// arrowhead Y axis
+	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));	// arrowhead X axis
+	//al_draw_text(font, al_map_rgb(255, 200, 200), 5, 5, 0, expr);
+	al_flip_display();
 
 	al_flip_display();
 	return 0;
