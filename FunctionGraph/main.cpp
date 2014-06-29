@@ -7,20 +7,16 @@
 #include <allegro5\allegro_primitives.h>
 #include <allegro5\allegro_font.h>
 #include <allegro5\allegro_ttf.h>
-ALLEGRO_DISPLAY *display = NULL;
-ALLEGRO_EVENT_QUEUE *event_queue = NULL;
-ALLEGRO_FONT *font = NULL;
-ALLEGRO_FONT *font_scale = NULL;
 
 #define TEXT_COLOR 255, 255, 255
 #define TEXT_SIZE 15
 #define MARGIN 0
-
-int expression_check(char expr[]);
-int solveForX(char expr[], double *resultvalue, double argument);
-int allegro_initialization(int widht, int height);
-int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale);
-char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", "x", "pi", "e", NULL};
+#define GRAPH_WIDHT 800
+#define GRAPH_HEIGHT 600
+ALLEGRO_DISPLAY *display = NULL;
+ALLEGRO_EVENT_QUEUE *event_queue = NULL;
+ALLEGRO_FONT *font = NULL;
+ALLEGRO_FONT *font_scale = NULL;
 
 class Coordinate_system
 {
@@ -32,9 +28,10 @@ private:
 	double max_visible_value;
 	double min_visible_value;
 	double graph_height;
+	float accuracy;
 
 public:
-	Coordinate_system(int Yac, int Xac, int Xs, int Ys, int graphheight)
+	Coordinate_system(int Yac, int Xac, int Xs, int Ys, int graphheight, float acc)
 	{
 		Y_axis_coord = Yac;
 		X_axis_coord = Xac;
@@ -43,6 +40,7 @@ public:
 		graph_height = graphheight;
 		max_visible_value = (X_axis_coord/*-MARGIN*/)*1.0/Yscale;
 		min_visible_value = (graph_height/*-MARGIN*/-X_axis_coord)*(-1.0/Yscale);
+		accuracy = acc;
 		printf("done\n");
 	}
 
@@ -71,6 +69,12 @@ public:
 		return 1.0/(double)Xscale;	//Xscale describes number of pixels between bars, 
 	}
 
+	float read_accuracy()
+	{
+		return accuracy;
+	}
+
+
 	//change scale()
 
 	int draw_function_line(int x1, double x1_value, int x2, double x2_value)
@@ -84,6 +88,13 @@ public:
 	}
 
 };
+int draw_func(Coordinate_system *cs, char expression[]);
+int expression_check(char expr[]);
+int solveForX(char expr[], double *resultvalue, double argument);
+int allegro_initialization(int widht, int height);
+int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale);
+char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", "x", "pi", "e", NULL};
+
 
 int main()
 {
@@ -107,28 +118,16 @@ int main()
 			return 0;
 	} while(expression_check(expr));
 
-	int graph_area_widht = 800;
-	int graph_area_height = 600;
-	Coordinate_system cs(graph_area_widht / 2, graph_area_height / 2, 50, 50, graph_area_height);
-
 #define EXTRA_DATA_AREA_ON_RIGHT_SIDE 0
-	allegro_initialization( graph_area_widht+EXTRA_DATA_AREA_ON_RIGHT_SIDE, graph_area_height );
+	allegro_initialization( GRAPH_WIDHT+EXTRA_DATA_AREA_ON_RIGHT_SIDE, GRAPH_HEIGHT );
 	ALLEGRO_EVENT ev;
+	Coordinate_system cs(GRAPH_WIDHT / 2, GRAPH_HEIGHT / 2, 50, 50, GRAPH_HEIGHT, 0.05);
+	double *function_table = new double[(GRAPH_WIDHT - cs.read_axis_coord('y') + cs.read_axis_coord('y') )* cs.read_accuracy()];
 
-	draw_empty_chart(cs.read_axis_coord('x'), cs.read_axis_coord('y'), graph_area_widht, graph_area_height, cs.read_scale_of_axis('x'), cs.read_scale_of_axis('y'));
+	draw_empty_chart(cs.read_axis_coord('x'), cs.read_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs.read_scale_of_axis('x'), cs.read_scale_of_axis('y'));
 
 	//DRAWING OF MAIN FUNCTION - from orygin to the left, then to the right
-	double last_value, current_value;
-	solveForX(expr, &last_value, 0.0);
-	double pixel_unit = cs.calculate_diff_between_pixels_on_X_axis();
-	float accuracy = 0.01;
-	for(float arg_px=1/*(-(cs.read_axis_coord('y')))*/; arg_px < graph_area_widht - cs.read_axis_coord('y'); arg_px += accuracy)
-	{
-		solveForX(expr, &current_value, arg_px*pixel_unit);
-		cs.draw_function_line(cs.read_axis_coord('y')+arg_px-1, cs.read_axis_coord('x')-last_value*cs.read_scale_of_axis('y'), cs.read_axis_coord('y')+arg_px, cs.read_axis_coord('x')-current_value*cs.read_scale_of_axis('y'));
-		last_value = current_value;
-	}
-	al_flip_display();
+	draw_func(&cs, expr);
 
 	while(1)
 	{
@@ -138,6 +137,32 @@ int main()
 	}
 	return 0;
 }
+
+//int store_function(char expression[])
+//{
+//	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+//	{
+//		solveForX(expression, &current_value, arg_px*pixel_unit);
+//
+//	return 0;
+//}
+//
+
+int draw_func(Coordinate_system *cs, char expression[])
+{
+	double last_value, current_value;
+	solveForX(expression, &last_value, 0.0);
+	double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
+	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+	{
+		solveForX(expression, &current_value, arg_px*pixel_unit);
+		cs->draw_function_line(cs->read_axis_coord('y')+arg_px-1, cs->read_axis_coord('x')-last_value*cs->read_scale_of_axis('y'), cs->read_axis_coord('y')+arg_px, cs->read_axis_coord('x')-current_value*cs->read_scale_of_axis('y'));
+		last_value = current_value;
+	}
+	al_flip_display();
+	return 0;
+}
+
 
 int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale)
 {
@@ -252,6 +277,9 @@ int allegro_initialization(int widht, int height)
 	}
 	else
 		printf("Allegro initialized\n");
+
+	al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_REQUIRE);
+	al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
 
 	display = al_create_display(widht, height);
 	if(!display) 
