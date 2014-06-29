@@ -58,7 +58,7 @@ public:
 
 	int read_scale_of_axis(char which_axis)
 	{
-				if(which_axis == 'x')
+		if(which_axis == 'x')
 			return Xscale;
 		else if(which_axis == 'y')
 			return Yscale;
@@ -101,7 +101,7 @@ int main()
 		//fgets(expr, 1023, stdin);
 		printf("\n");
 		//strcat(expr, "2+2*sin(x)\n");
-		strcat(expr, "x\n");
+		strcat(expr, "e^x^(0.5*e)");
 		
 		if(expr[0] == 'q')
 			return 0;
@@ -109,32 +109,24 @@ int main()
 
 	int graph_area_widht = 800;
 	int graph_area_height = 600;
-	Coordinate_system coord_system(graph_area_widht / 2, graph_area_height / 2, 150, 150, graph_area_height);
+	Coordinate_system cs(graph_area_widht / 2, graph_area_height / 2, 50, 50, graph_area_height);
 
 #define EXTRA_DATA_AREA_ON_RIGHT_SIDE 0
 	allegro_initialization( graph_area_widht+EXTRA_DATA_AREA_ON_RIGHT_SIDE, graph_area_height );
 	ALLEGRO_EVENT ev;
 
-	draw_empty_chart(coord_system.read_axis_coord('x'), coord_system.read_axis_coord('y'), graph_area_widht, graph_area_height, coord_system.read_scale_of_axis('x'), coord_system.read_scale_of_axis('y'));
+	draw_empty_chart(cs.read_axis_coord('x'), cs.read_axis_coord('y'), graph_area_widht, graph_area_height, cs.read_scale_of_axis('x'), cs.read_scale_of_axis('y'));
 
 	//DRAWING OF MAIN FUNCTION - from orygin to the left, then to the right
 	double last_value, current_value;
 	solveForX(expr, &last_value, 0.0);
-	double pixel_unit = coord_system.calculate_diff_between_pixels_on_X_axis();
-	for(int arg_px=-1; arg_px>(-(coord_system.read_axis_coord('y'))); arg_px--)
+	double pixel_unit = cs.calculate_diff_between_pixels_on_X_axis();
+	float accuracy = 0.01;
+	for(float arg_px=1/*(-(cs.read_axis_coord('y')))*/; arg_px < graph_area_widht - cs.read_axis_coord('y'); arg_px += accuracy)
 	{
-		solveForX(expr, &current_value, (double)arg_px*pixel_unit);
-		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px-1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
+		solveForX(expr, &current_value, arg_px*pixel_unit);
+		cs.draw_function_line(cs.read_axis_coord('y')+arg_px-1, cs.read_axis_coord('x')-last_value*cs.read_scale_of_axis('y'), cs.read_axis_coord('y')+arg_px, cs.read_axis_coord('x')-current_value*cs.read_scale_of_axis('y'));
 		last_value = current_value;
-		al_flip_display();
-	}
-	solveForX(expr, &last_value, 0.0);
-	for(int arg_px=1; arg_px < graph_area_widht - coord_system.read_axis_coord('y'); arg_px++)
-	{
-		solveForX(expr, &current_value, (double)arg_px*pixel_unit);
-		coord_system.draw_function_line(coord_system.read_axis_coord('y')+arg_px-1, coord_system.read_axis_coord('x')-last_value*coord_system.read_scale_of_axis('y'), coord_system.read_axis_coord('y')+arg_px, coord_system.read_axis_coord('x')-current_value*coord_system.read_scale_of_axis('y'));
-		last_value = current_value;
-	//	al_flip_display();
 	}
 	al_flip_display();
 
@@ -160,10 +152,10 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 	for(pos = Y_axis_coord-(Y_axis_coord%freqX); pos >= MARGIN; pos--)	//bars - negative X axis
 	{
 		if(pos % freqX < 1)
-	{
+		{
 			al_draw_line(pos+(Y_axis_coord%freqX), 0, pos+(Y_axis_coord%freqX), winYsize, AL_GREY, 1);
 			al_draw_line(pos+(Y_axis_coord%freqX), X_axis_coord+3, pos+(Y_axis_coord%freqX), X_axis_coord-3, al_map_rgb(255, 255, 255), 1);
-	}
+		}
 	}
 	for(pos = Y_axis_coord-(Y_axis_coord%freqX); pos <= winXsize-MARGIN-10; pos++)	// bars - positive X axis
 	{
@@ -195,10 +187,10 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 	for(pos = X_axis_coord-(X_axis_coord%freqY); pos <= winYsize-MARGIN; pos++)	// bars - negative Y axis
 	{
 		if(pos % freqY < 1)
-	{
+		{
 			al_draw_line(0, pos+(X_axis_coord%freqY), winXsize, pos+(X_axis_coord%freqY), AL_GREY, 1); 
 			al_draw_line(Y_axis_coord+3, pos+(X_axis_coord%freqY), Y_axis_coord-3, pos+(X_axis_coord%freqY), al_map_rgb(255, 255, 255), 1); 
-	}
+		}
 	}
 
 	// now axes, arrowheads are being drawn
