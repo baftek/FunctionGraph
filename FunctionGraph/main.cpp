@@ -1,7 +1,7 @@
 ﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include "evaluate.h"
+#include "evaluate.h"
 #include <allegro5\allegro5.h>
 #include <allegro5\allegro_native_dialog.h>
 #include <allegro5\allegro_primitives.h>
@@ -17,6 +17,7 @@ ALLEGRO_DISPLAY *display = NULL;
 ALLEGRO_EVENT_QUEUE *event_queue = NULL;
 ALLEGRO_FONT *font = NULL;
 ALLEGRO_FONT *font_scale = NULL;
+long number_of_calculations = 0;
 
 class Coordinate_system
 {
@@ -81,12 +82,12 @@ public:
 	{
 		if(x1_value >= MARGIN && x1_value <= graph_height - MARGIN
 			&& x2_value >= MARGIN && x2_value <= graph_height - MARGIN)
-			al_draw_pixel(x2, x2_value, al_map_rgb(255, 200, 200));
-			//al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
-		al_flip_display();
+			//al_draw_pixel(x2, x2_value, al_map_rgb(255, 200, 200));
+			al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
+		if(!(x2 % 100))
+			al_flip_display();
 		return 0;
 	}
-
 };
 int draw_func(Coordinate_system *cs, char expression[]);
 int expression_check(char expr[]);
@@ -96,37 +97,47 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "asin", "acos", "atan", "sinh", "cosh", "tanh", "sin", "cos", "tan", "exp", "log", "log10", "sqrt", "floor", "ceil", "abs", "deg", "rad", "x", "pi", "e", NULL};
 
 
-int main()
+int main(int argc, char **argv)
 {
 	char expr[1024] = {NULL};
-	//printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub wpisz literke q by zakonczyc\n");
-	printf("Enter expression to draw  eg. sin(x) with one variable x or type q to quit\n");
-	printf("You can use: \n");
-	for(int i=1; Allowedstrings[i] != NULL; i++)
-		printf("%s ", Allowedstrings[i]);
-	printf("\nUse * when multiplicating or it will not work. 2x is bad, 2*x is good.\n");
-
-	do
+	if(argc == 1)
 	{
-		printf("y = ");
-		//fgets(expr, 1023, stdin);
-		printf("\n");
-		//strcat(expr, "2+2*sin(x)\n");
-		strcat(expr, "e^x^(0.5*e)");
-		
-		if(expr[0] == 'q')
-			return 0;
-	} while(expression_check(expr));
+		//printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub wpisz literke q by zakonczyc\n");
+		printf("Enter expression to draw  eg. sin(x) with one variable x or type q to quit\n");
+		printf("You can use: \n");
+		for(int i=1; Allowedstrings[i] != NULL; i++)
+			printf("%s ", Allowedstrings[i]);
+		printf("\nUse * when multiplicating or it will not work. 2x is bad, 2*x is good.\n");
 
+		do
+		{
+			printf("y = ");
+			//fgets(expr, 1023, stdin);
+			printf("\n");
+			//strcat(expr, "2+2*sin(x)\n");
+			strcat(expr, "sin(x^3)");
+		
+			if(expr[0] == 'q')
+				return 0;
+		} while(expression_check(expr));
+	}
+	else if(argc > 1)
+	{
+		strcpy(expr, argv[1]);
+		printf("%s", expr);
+		if(expression_check(expr))
+			return 0;
+	}
 #define EXTRA_DATA_AREA_ON_RIGHT_SIDE 0
 	allegro_initialization( GRAPH_WIDHT+EXTRA_DATA_AREA_ON_RIGHT_SIDE, GRAPH_HEIGHT );
+#undef EXTRA_DATA_AREA_ON_RIGHT_SIDE
 	ALLEGRO_EVENT ev;
-	Coordinate_system cs(GRAPH_WIDHT / 2, GRAPH_HEIGHT / 2, 50, 50, GRAPH_HEIGHT, 0.05);
-	double *function_table = new double[(GRAPH_WIDHT - cs.read_axis_coord('y') + cs.read_axis_coord('y') )* cs.read_accuracy()];
+	Coordinate_system cs(GRAPH_WIDHT / 2, GRAPH_HEIGHT / 2, 50, 50, GRAPH_HEIGHT, 0.01);
+	double *function_table = new double[(int)(GRAPH_WIDHT* cs.read_accuracy())+1];
 
 	draw_empty_chart(cs.read_axis_coord('x'), cs.read_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs.read_scale_of_axis('x'), cs.read_scale_of_axis('y'));
 
-	//DRAWING OF MAIN FUNCTION - from orygin to the left, then to the right
+	//DRAWING OF MAIN FUNCTION - from left to the right
 	draw_func(&cs, expr);
 
 	while(1)
@@ -138,31 +149,34 @@ int main()
 	return 0;
 }
 
-//int store_function(char expression[])
-//{
-//	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
-//	{
-//		solveForX(expression, &current_value, arg_px*pixel_unit);
-//
-//	return 0;
-//}
-//
+int store_function(Coordinate_system *cs, char expression[])
+{
+	double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
+	double value;
+	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+	{
+		solveForX(expression, &value, arg_px*pixel_unit);
+	}
+
+	return 0;
+}
+
+// dynamic accuracy, derivatives, changing scale, more functions(x), movement of axis
 
 int draw_func(Coordinate_system *cs, char expression[])
 {
 	double last_value, current_value;
 	solveForX(expression, &last_value, 0.0);
 	double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
+	number_of_calculations = 0;
 	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
 	{
 		solveForX(expression, &current_value, arg_px*pixel_unit);
 		cs->draw_function_line(cs->read_axis_coord('y')+arg_px-1, cs->read_axis_coord('x')-last_value*cs->read_scale_of_axis('y'), cs->read_axis_coord('y')+arg_px, cs->read_axis_coord('x')-current_value*cs->read_scale_of_axis('y'));
 		last_value = current_value;
 	}
-	al_flip_display();
 	return 0;
 }
-
 
 int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYsize, int Xscale, int Yscale)
 {
@@ -227,8 +241,6 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));	// arrowhead X axis
 	//al_draw_text(font, al_map_rgb(255, 200, 200), 5, 5, 0, expr);
 	al_flip_display();
-
-	al_flip_display();
 	return 0;
 }
 
@@ -252,7 +264,7 @@ int expression_check(char expr[])
 			{
 				strpos[j] = 32;
 				possibly_incorrect_chars_counter--;
-				printf("%s\n", exprdup);
+				//printf("%s\n", exprdup);
 			}
 			strpos = NULL;
 		}	
@@ -264,6 +276,7 @@ int expression_check(char expr[])
 	else
 		printf("Expression is correct\n");
 
+	free(exprdup);
 	return possibly_incorrect_chars_counter;
 }
 

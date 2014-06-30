@@ -497,6 +497,7 @@ int solveForX(char expr[], double *resultvalue, double argument)
             //printf( "\n%s", ERANC );
             //printf( "\n%*s^\n", ERPOS, "" );
 		}
+	number_of_calculations += 1;
 
 		//printf("\nThe end of demonstration.\n\n");
 	return -1;

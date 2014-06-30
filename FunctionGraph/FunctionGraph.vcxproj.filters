@@ -26,8 +26,5 @@
     <ClInclude Include="..\..\..\..\..\Desktop\Download\evaluate_to_jest_spakowany_katalog\evaluate\evaluate.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="majorheader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
