@@ -482,7 +482,7 @@ int solveForX(char expr[], double *resultvalue, double argument)
 	if (ec == E_OK)
 	{
 		*resultvalue = result;
-		printf("arg = %f, val = %f\n",argument, result);
+		//printf("arg = %f, val = %f\n",argument, result);
 	}
 	else
 		if (ec == E_EMPTY)

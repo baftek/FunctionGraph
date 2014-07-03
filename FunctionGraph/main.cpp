@@ -18,6 +18,7 @@ ALLEGRO_EVENT_QUEUE *event_queue = NULL;
 ALLEGRO_FONT *font = NULL;
 ALLEGRO_FONT *font_scale = NULL;
 long number_of_calculations = 0;
+double **function_table = new double*[5];
 
 class Coordinate_system
 {
@@ -78,18 +79,19 @@ public:
 
 	//change scale()
 
-	int draw_function_line(int x1, double x1_value, int x2, double x2_value)
+	int draw_function_line(int x1, double x1_value, int x2, double x2_value, ALLEGRO_COLOR line_color)
 	{
 		if(x1_value >= MARGIN && x1_value <= graph_height - MARGIN
 			&& x2_value >= MARGIN && x2_value <= graph_height - MARGIN)
-			//al_draw_pixel(x2, x2_value, al_map_rgb(255, 200, 200));
-			al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
+			al_draw_pixel(x2, x2_value, line_color);
+			//al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
 		if(!(x2 % 100))
 			al_flip_display();
 		return 0;
 	}
 };
-int draw_func(Coordinate_system *cs, char expression[]);
+int calc_function(Coordinate_system *cs, char expression[], char derivative_order);
+int draw_func(Coordinate_system *cs, char expression[], ALLEGRO_COLOR line_color);
 int expression_check(char expr[]);
 int solveForX(char expr[], double *resultvalue, double argument);
 int allegro_initialization(int widht, int height);
@@ -100,6 +102,9 @@ char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "as
 int main(int argc, char **argv)
 {
 	char expr[1024] = {NULL};
+	for(int i=0; i<5; i++)
+		function_table[i] = NULL;
+
 	if(argc == 1)
 	{
 		//printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub wpisz literke q by zakonczyc\n");
@@ -115,7 +120,7 @@ int main(int argc, char **argv)
 			//fgets(expr, 1023, stdin);
 			printf("\n");
 			//strcat(expr, "2+2*sin(x)\n");
-			strcat(expr, "sin(x^3)");
+			strcat(expr, "sin(x)");
 		
 			if(expr[0] == 'q')
 				return 0;
@@ -128,42 +133,66 @@ int main(int argc, char **argv)
 		if(expression_check(expr))
 			return 0;
 	}
-#define EXTRA_DATA_AREA_ON_RIGHT_SIDE 0
-	allegro_initialization( GRAPH_WIDHT+EXTRA_DATA_AREA_ON_RIGHT_SIDE, GRAPH_HEIGHT );
-#undef EXTRA_DATA_AREA_ON_RIGHT_SIDE
+
+	allegro_initialization( GRAPH_WIDHT, GRAPH_HEIGHT );
 	ALLEGRO_EVENT ev;
+
 	Coordinate_system cs(GRAPH_WIDHT / 2, GRAPH_HEIGHT / 2, 50, 50, GRAPH_HEIGHT, 0.01);
-	double *function_table = new double[(int)(GRAPH_WIDHT* cs.read_accuracy())+1];
+	calc_function(&cs, expr, 3);
+	//int aaa = (int)(GRAPH_WIDHT / cs.read_accuracy())+1;
 
 	draw_empty_chart(cs.read_axis_coord('x'), cs.read_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs.read_scale_of_axis('x'), cs.read_scale_of_axis('y'));
 
 	//DRAWING OF MAIN FUNCTION - from left to the right
-	draw_func(&cs, expr);
+	draw_func(&cs, expr, al_map_rgb(255, 200, 200));
 
-	while(1)
-	{
-		al_wait_for_event(event_queue, &ev);
-		if(ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE || (ev.type == ALLEGRO_EVENT_KEY_DOWN && (ev.keyboard.keycode == ALLEGRO_KEY_Q || ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)))
-			return 0;  //exit program
-	}
+	//while(1)
+	//{
+	//	al_wait_for_event(event_queue, &ev);
+	//	if(ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE || (ev.type == ALLEGRO_EVENT_KEY_DOWN && (ev.keyboard.keycode == ALLEGRO_KEY_Q || ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)))
+	//		return 0;  //exit program
+	//}
 	return 0;
 }
 
-int store_function(Coordinate_system *cs, char expression[])
+int calc_function(Coordinate_system *cs, char expression[], char derivative_order)
 {
+	printf("Licze %d. pochodna\n", derivative_order);
+	//check if lower derivative orders were calculated
+	for(int i = derivative_order; i>=0; i--)
+		if(function_table[i] == NULL && i > 0)
+			calc_function(cs, expression, i-1);
+	
+	//creating data container and filling with zeroes
+	function_table[derivative_order] = new double[number_of_calculations+1];	/////////////////////////////////////////////////////////////////
+	for(int j=0; j<number_of_calculations+1; j++)
+		function_table[j] = 0;
+
+	int k = 0;
 	double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
-	double value;
-	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+	if(derivative_order == 0)
 	{
-		solveForX(expression, &value, arg_px*pixel_unit);
+		for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+		{
+			solveForX(expression, &function_table[derivative_order][k], arg_px*pixel_unit);
+			k++;
+		}
 	}
+	else	// find derivative using function of higher derivative order
+	{
+		for(k = 0; k<number_of_calculations; k++)
+			function_table[derivative_order][k] = function_table[derivative_order - 1][k] - function_table[derivative_order - 1][k+1] ;
+	}
+
+	for(int i=0; i< number_of_calculations+1; i++)
+		//printf("%5d: %f", i, function_table[derivative_order][i]);
 
 	return 0;
 }
 
-// dynamic accuracy, derivatives, changing scale, more functions(x), movement of axis
+// TODO: dynamic accuracy, *derivatives, changing scale, more functions(x), movement of axis
 
-int draw_func(Coordinate_system *cs, char expression[])
+int draw_func(Coordinate_system *cs, char expression[], ALLEGRO_COLOR line_color)
 {
 	double last_value, current_value;
 	solveForX(expression, &last_value, 0.0);
@@ -172,9 +201,11 @@ int draw_func(Coordinate_system *cs, char expression[])
 	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
 	{
 		solveForX(expression, &current_value, arg_px*pixel_unit);
-		cs->draw_function_line(cs->read_axis_coord('y')+arg_px-1, cs->read_axis_coord('x')-last_value*cs->read_scale_of_axis('y'), cs->read_axis_coord('y')+arg_px, cs->read_axis_coord('x')-current_value*cs->read_scale_of_axis('y'));
+		cs->draw_function_line(cs->read_axis_coord('y')+arg_px-1, cs->read_axis_coord('x')-last_value*cs->read_scale_of_axis('y'), cs->read_axis_coord('y')+arg_px, cs->read_axis_coord('x')-current_value*cs->read_scale_of_axis('y'), line_color);
 		last_value = current_value;
 	}
+	al_flip_display();
+	//printf("Number of calcs: %d\n", number_of_calculations);
 	return 0;
 }
 
