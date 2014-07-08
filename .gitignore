@@ -151,3 +151,4 @@ $RECYCLE.BIN/
 .DS_Store
 patch.diff
 FunctionGraph/main - Kopia.cpp
+FunctionGraph/debugoutput.txt

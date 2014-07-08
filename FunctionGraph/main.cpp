@@ -1,12 +1,16 @@
-﻿#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+﻿#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <vector>
+#include <map>
 #include "evaluate.h"
 #include <allegro5\allegro5.h>
 #include <allegro5\allegro_native_dialog.h>
 #include <allegro5\allegro_primitives.h>
 #include <allegro5\allegro_font.h>
 #include <allegro5\allegro_ttf.h>
+//using namespace std;
 
 #define TEXT_COLOR 255, 255, 255
 #define TEXT_SIZE 15
@@ -18,7 +22,9 @@ ALLEGRO_EVENT_QUEUE *event_queue = NULL;
 ALLEGRO_FONT *font = NULL;
 ALLEGRO_FONT *font_scale = NULL;
 long number_of_calculations = 0;
-double **function_table = new double*[5];
+//double **function_table = new double*[5];
+std::map<double, std::vector<double> > function_map;
+
 
 class Coordinate_system
 {
@@ -30,10 +36,9 @@ private:
 	double max_visible_value;
 	double min_visible_value;
 	double graph_height;
-	float accuracy;
 
 public:
-	Coordinate_system(int Yac, int Xac, int Xs, int Ys, int graphheight, float acc)
+	Coordinate_system(int Yac, int Xac, int Xs, int Ys, int graphheight)
 	{
 		Y_axis_coord = Yac;
 		X_axis_coord = Xac;
@@ -42,8 +47,6 @@ public:
 		graph_height = graphheight;
 		max_visible_value = (X_axis_coord/*-MARGIN*/)*1.0/Yscale;
 		min_visible_value = (graph_height/*-MARGIN*/-X_axis_coord)*(-1.0/Yscale);
-		accuracy = acc;
-		printf("done\n");
 	}
 
 	int read_axis_coord(char which_axis)
@@ -71,27 +74,27 @@ public:
 		return 1.0/(double)Xscale;	//Xscale describes number of pixels between bars, 
 	}
 
-	float read_accuracy()
-	{
-		return accuracy;
-	}
-
-
 	//change scale()
 
-	int draw_function_line(int x1, double x1_value, int x2, double x2_value, ALLEGRO_COLOR line_color)
+	int draw_function_line(double x1, double x1_value, double x2, double x2_value, ALLEGRO_COLOR line_color)
 	{
-		if(x1_value >= MARGIN && x1_value <= graph_height - MARGIN
-			&& x2_value >= MARGIN && x2_value <= graph_height - MARGIN)
-			al_draw_pixel(x2, x2_value, line_color);
+		if(x1_value >= min_visible_value && x1_value <= max_visible_value
+			&& x2_value >= min_visible_value && x2_value <= max_visible_value)
+		{
+			x1 = Y_axis_coord + (x1 * (double)Xscale);
+			x1_value = X_axis_coord - (x1_value * (double)Yscale);
+			//printf("x=%f y=%f\n", x1, x1_value);
+			al_draw_pixel(x1, x1_value, line_color);
 			//al_draw_line(x1, x1_value, x2, x2_value, al_map_rgb(255, 200, 200), 1);
-		if(!(x2 % 100))
+		if(!((int)x2 % 100))
 			al_flip_display();
+		}
 		return 0;
 	}
 };
-int calc_function(Coordinate_system *cs, char expression[], char derivative_order);
-int draw_func(Coordinate_system *cs, char expression[], ALLEGRO_COLOR line_color);
+void recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step);
+int calc_function(Coordinate_system *cs, char expression[], char derivative_order, float step);
+int draw_function(Coordinate_system *cs, char expression[], char der_num);
 int expression_check(char expr[]);
 int solveForX(char expr[], double *resultvalue, double argument);
 int allegro_initialization(int widht, int height);
@@ -101,29 +104,36 @@ char *Allowedstrings[] = {"\n", "+", "-", "*", "/", "%", "^", ")", "(", ".", "as
 
 int main(int argc, char **argv)
 {
+	srand(time(NULL));
 	char expr[1024] = {NULL};
-	for(int i=0; i<5; i++)
-		function_table[i] = NULL;
 
-	if(argc == 1)
+	if(argc < 2)
 	{
 		//printf("Wpisz wzor do narysowania np. sin(x) z jedna niewiadoma x lub wpisz literke q by zakonczyc\n");
 		printf("Enter expression to draw  eg. sin(x) with one variable x or type q to quit\n");
+		printf("Type 'help' to see what you can build function of.\n");
 		printf("You can use: \n");
-		for(int i=1; Allowedstrings[i] != NULL; i++)
-			printf("%s ", Allowedstrings[i]);
-		printf("\nUse * when multiplicating or it will not work. 2x is bad, 2*x is good.\n");
+		printf("\nUse * when multiplicating or it will not work. sin2x is bad, sin(2*x) is good.\n");
 
 		do
 		{
 			printf("y = ");
-			//fgets(expr, 1023, stdin);
-			printf("\n");
-			//strcat(expr, "2+2*sin(x)\n");
-			strcat(expr, "sin(x)");
+			fgets(expr, 1023, stdin);
+			//printf("\n");
+			//strcat(expr, "2+2*sin(x)-e^x\n");
+			//strcat(expr, "2*sinx+cos(4*x)+2*atanx\n");
+			//printf("%s", expr);
 		
 			if(expr[0] == 'q')
 				return 0;
+			else if(strstr(expr, "help"))
+			{
+				for(int i=1; Allowedstrings[i] != NULL; i++)
+					printf("%s ", Allowedstrings[i]);
+				printf("\n Now press any key\n");
+				continue;
+			}
+
 		} while(expression_check(expr));
 	}
 	else if(argc > 1)
@@ -134,78 +144,137 @@ int main(int argc, char **argv)
 			return 0;
 	}
 
+
+	Coordinate_system cs((GRAPH_WIDHT / 2), (GRAPH_HEIGHT / 2), 20, 20, GRAPH_HEIGHT);
+	char number_of_derivatives = 0;
+	calc_function(&cs, expr, number_of_derivatives, 0.001);
+
 	allegro_initialization( GRAPH_WIDHT, GRAPH_HEIGHT );
 	ALLEGRO_EVENT ev;
 
-	Coordinate_system cs(GRAPH_WIDHT / 2, GRAPH_HEIGHT / 2, 50, 50, GRAPH_HEIGHT, 0.01);
-	calc_function(&cs, expr, 3);
-	//int aaa = (int)(GRAPH_WIDHT / cs.read_accuracy())+1;
-
 	draw_empty_chart(cs.read_axis_coord('x'), cs.read_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs.read_scale_of_axis('x'), cs.read_scale_of_axis('y'));
-
 	//DRAWING OF MAIN FUNCTION - from left to the right
-	draw_func(&cs, expr, al_map_rgb(255, 200, 200));
+	draw_function(&cs, expr, number_of_derivatives);
 
-	//while(1)
-	//{
-	//	al_wait_for_event(event_queue, &ev);
-	//	if(ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE || (ev.type == ALLEGRO_EVENT_KEY_DOWN && (ev.keyboard.keycode == ALLEGRO_KEY_Q || ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)))
-	//		return 0;  //exit program
-	//}
+	// HERE - WHAT U WANT TO DO NOW?
+	// if again - use int recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step)
+
+	while(1)
+	{
+		al_wait_for_event(event_queue, &ev);
+		if(ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE || (ev.type == ALLEGRO_EVENT_KEY_DOWN && (ev.keyboard.keycode == ALLEGRO_KEY_Q || ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)))
+			return 0;  //exit program
+	}
 	return 0;
 }
 
-int calc_function(Coordinate_system *cs, char expression[], char derivative_order)
+void recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step)
 {
-	printf("Licze %d. pochodna\n", derivative_order);
-	//check if lower derivative orders were calculated
-	for(int i = derivative_order; i>=0; i--)
-		if(function_table[i] == NULL && i > 0)
-			calc_function(cs, expression, i-1);
-	
-	//creating data container and filling with zeroes
-	function_table[derivative_order] = new double[number_of_calculations+1];	/////////////////////////////////////////////////////////////////
-	for(int j=0; j<number_of_calculations+1; j++)
-		function_table[j] = 0;
+	calc_function(cs, expr, number_of_derivatives, 0.001);
+	draw_empty_chart(cs->read_axis_coord('x'), cs->read_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs->read_scale_of_axis('x'), cs->read_scale_of_axis('y'));
+	draw_function(cs, expr, number_of_derivatives);
+}
 
-	int k = 0;
-	double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
-	if(derivative_order == 0)
+
+int calc_function(Coordinate_system *cs, char expression[], char derivative_order, float step)
+{
+	printf("Calculating... \n");
+	double min_arg = (-1) * (cs->read_axis_coord('y') - MARGIN ) * cs->calculate_diff_between_pixels_on_X_axis();
+	double max_arg = ( GRAPH_WIDHT - 2*MARGIN - cs->read_axis_coord('y') ) * cs->calculate_diff_between_pixels_on_X_axis();
+	double current_value = 0;
+	function_map.clear();
+	for(int current_der_ord = 0; current_der_ord <= derivative_order; current_der_ord++)
 	{
-		for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+		if(current_der_ord == 0)	// oryginal function
 		{
-			solveForX(expression, &function_table[derivative_order][k], arg_px*pixel_unit);
-			k++;
+			for(double i = min_arg; i<=max_arg; i += step)
+			{
+				solveForX(expression, &current_value, i);
+				function_map[i].push_back(current_value);
+			}
+			printf("function done! \n");
+		}
+		else	// derivatives of function
+		{
+			std::map<double, std::vector<double>>::iterator it, it_next, it_end;
+			it = it_next = function_map.begin();
+			it_end = function_map.end();
+			for(int i=0; i<current_der_ord; i++)	//avoid calculating derivatives for arguments from ends of range
+			{
+				it++;
+				it_next++;
+				it_end--;
+			}
+			it_next++;
+			for(it; it != it_end; it++, it_next++)
+			{
+				// derivative at point is difference of y over difference of x
+				double a = (it_next->second[current_der_ord-1] - it->second[current_der_ord-1]) / (step);
+				it->second.push_back(a);
+			}
+			printf("%d. derivative done! \n");
 		}
 	}
-	else	// find derivative using function of higher derivative order
-	{
-		for(k = 0; k<number_of_calculations; k++)
-			function_table[derivative_order][k] = function_table[derivative_order - 1][k] - function_table[derivative_order - 1][k+1] ;
-	}
-
-	for(int i=0; i< number_of_calculations+1; i++)
-		//printf("%5d: %f", i, function_table[derivative_order][i]);
 
 	return 0;
 }
 
-// TODO: dynamic accuracy, *derivatives, changing scale, more functions(x), movement of axis
+// TODO: dynamic accuracy, changing scale, more functions(x), movement of axis, description of visible functions
 
-int draw_func(Coordinate_system *cs, char expression[], ALLEGRO_COLOR line_color)
+int draw_function(Coordinate_system *cs, char expression[], char der_num)
 {
-	double last_value, current_value;
-	solveForX(expression, &last_value, 0.0);
-	double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
-	number_of_calculations = 0;
-	for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+	std::map<double, std::vector<double>>::iterator it;
+	std::map<double, std::vector<double>>::iterator it_end;
+
+	ALLEGRO_COLOR line_color;
+	//for function and every derivative
+	for(int current_derivative = 0; current_derivative <= der_num; current_derivative++)
 	{
-		solveForX(expression, &current_value, arg_px*pixel_unit);
-		cs->draw_function_line(cs->read_axis_coord('y')+arg_px-1, cs->read_axis_coord('x')-last_value*cs->read_scale_of_axis('y'), cs->read_axis_coord('y')+arg_px, cs->read_axis_coord('x')-current_value*cs->read_scale_of_axis('y'), line_color);
-		last_value = current_value;
+		it = function_map.begin();
+		it_end = function_map.end();
+		for(int i=0; i<=current_derivative; i++)
+		{
+			it++;
+			it_end--;
+		}
+		
+		switch(current_derivative)	// choose color for line
+		{
+		case 0: line_color = al_map_rgb(255, 0, 0); break;
+		case 1: line_color = al_map_rgb(0, 255, 0); break;
+		case 2: line_color = al_map_rgb(100, 100, 255); break;
+			//	if derivative of higher order take random, bright enough color
+		default: unsigned char r; unsigned char g; unsigned char b ;
+			do
+			{
+				r = rand()%255;
+				g = rand()%255;
+				b = rand()%255;
+			}
+			while( (r+g+b) > 200 );
+			line_color = al_map_rgb(r, g, b);
+		}
+		for(it; it != it_end; it++)
+		{
+			cs->draw_function_line(it->first, it->second[current_derivative], 1, 1 /*it++->first, it++->second[current_derivative]*/, line_color);
+		}
+		al_flip_display();
+
 	}
-	al_flip_display();
+
+	//double last_value, current_value;
+	//solveForX(expression, &last_value, 0.0);
+	//double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
+	//number_of_calculations = 0;
+	//for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
+	//{
+	//	solveForX(expression, &current_value, arg_px*pixel_unit);
+	//	cs->draw_function_line(cs->read_axis_coord('y')+arg_px-1, cs->read_axis_coord('x')-last_value*cs->read_scale_of_axis('y'), cs->read_axis_coord('y')+arg_px, cs->read_axis_coord('x')-current_value*cs->read_scale_of_axis('y'), line_color);
+	//	last_value = current_value;
+	//}
+
 	//printf("Number of calcs: %d\n", number_of_calculations);
+	al_flip_display();
 	return 0;
 }
 
@@ -266,8 +335,8 @@ int draw_empty_chart(int X_axis_coord, int Y_axis_coord, int winXsize, int winYs
 	// now axes, arrowheads are being drawn
 	al_draw_line(Y_axis_coord, MARGIN, Y_axis_coord, winYsize-MARGIN, al_map_rgb(255, 255, 255), 1);	// Y axis
 	al_draw_line(MARGIN, X_axis_coord, winXsize-MARGIN, X_axis_coord, al_map_rgb(255, 255, 255), 1);	// X axis
-	al_draw_line(Y_axis_coord+Xscale, MARGIN, Y_axis_coord+Xscale, winYsize-MARGIN, al_map_rgb(255, 0, 0), 1);	// Y axis
-	al_draw_line(MARGIN, X_axis_coord-Yscale, winXsize-MARGIN, X_axis_coord-Yscale, al_map_rgb(255, 0, 0), 1);	// X axis
+	//al_draw_line(Y_axis_coord+Xscale, MARGIN, Y_axis_coord+Xscale, winYsize-MARGIN, al_map_rgb(255, 0, 0), 1);	// Y axis
+	//al_draw_line(MARGIN, X_axis_coord-Yscale, winXsize-MARGIN, X_axis_coord-Yscale, al_map_rgb(255, 0, 0), 1);	// X axis
 	al_draw_filled_triangle(Y_axis_coord, MARGIN, Y_axis_coord-5, MARGIN+8, Y_axis_coord+5, MARGIN+8, al_map_rgb(255, 255, 255));	// arrowhead Y axis
 	al_draw_filled_triangle(winXsize-MARGIN, X_axis_coord, winXsize-MARGIN-8, X_axis_coord-5, winXsize-MARGIN-8, X_axis_coord+5, al_map_rgb(255, 255, 255));	// arrowhead X axis
 	//al_draw_text(font, al_map_rgb(255, 200, 200), 5, 5, 0, expr);
@@ -319,8 +388,8 @@ int allegro_initialization(int widht, int height)
                                  NULL, ALLEGRO_MESSAGEBOX_ERROR);
 		return -1;
 	}
-	else
-		printf("Allegro initialized\n");
+	//else
+	//	printf("Allegro initialized\n");
 
 	al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_REQUIRE);
 	al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
@@ -331,8 +400,8 @@ int allegro_initialization(int widht, int height)
 		al_show_native_message_box(display, "Error", "Error", "failed to create display!", NULL, ALLEGRO_MESSAGEBOX_ERROR);
 		return -1;
 	}
-	else
-		printf("Display created\n");
+	//else
+	//	printf("Display created\n");
 
 	event_queue = al_create_event_queue();
 	if(!event_queue) 
@@ -341,8 +410,8 @@ int allegro_initialization(int widht, int height)
 		al_destroy_display(display);
 		return -1;
 	}
-	else
-		printf("Event queue created\n");
+	//else
+	//	printf("Event queue created\n");
 	al_flush_event_queue(event_queue);
 
 	al_init_font_addon();
@@ -356,8 +425,8 @@ int allegro_initialization(int widht, int height)
 		al_destroy_display(display);
 		return -1;
 	}
-	else
-		printf("Fonts installed\n");
+	//else
+	//	printf("Fonts installed\n");
 
 	al_install_keyboard();
 	al_register_event_source(event_queue, al_get_display_event_source(display));
