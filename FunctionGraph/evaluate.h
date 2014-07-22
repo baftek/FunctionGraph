@@ -12,8 +12,6 @@
 #define DEL             2
 #define NUM             3
 
-extern long number_of_calculations;
-
 typedef struct
 {
    char name[VARLEN + 1];               /* Variable name */

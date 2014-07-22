@@ -21,8 +21,8 @@ ALLEGRO_DISPLAY *display = NULL;
 ALLEGRO_EVENT_QUEUE *event_queue = NULL;
 ALLEGRO_FONT *font = NULL;
 ALLEGRO_FONT *font_scale = NULL;
-long number_of_calculations = 0;
-//double **function_table = new double*[5];
+char number_of_derivatives = 0;
+int lowest_known_deriv_order = 0;
 std::map<double, std::vector<double> > function_map;
 
 
@@ -35,21 +35,23 @@ private:
 	int Yscale;
 	double max_visible_value;
 	double min_visible_value;
-	double graph_height;
+	int graph_height;
+	int graph_widht;
 
 public:
-	Coordinate_system(int Yac, int Xac, int Xs, int Ys, int graphheight)
+	Coordinate_system(int Yac, int Xac, int Xs, int Ys, int graphheight, int graphwidht)
 	{
 		Y_axis_coord = Yac;
 		X_axis_coord = Xac;
 		Xscale = Xs;
 		Yscale = Ys;
 		graph_height = graphheight;
+		graph_widht = graphwidht;
 		max_visible_value = (X_axis_coord/*-MARGIN*/)*1.0/Yscale;
 		min_visible_value = (graph_height/*-MARGIN*/-X_axis_coord)*(-1.0/Yscale);
 	}
 
-	int read_axis_coord(char which_axis)
+	int get_axis_coord(char which_axis)
 	{
 		if(which_axis == 'x')
 			return X_axis_coord;
@@ -59,7 +61,7 @@ public:
 			return -1;
 	}
 
-	int read_scale_of_axis(char which_axis)
+	int get_scale_of_axis(char which_axis)
 	{
 		if(which_axis == 'x')
 			return Xscale;
@@ -74,7 +76,25 @@ public:
 		return 1.0/(double)Xscale;	//Xscale describes number of pixels between bars, 
 	}
 
-	//change scale()
+	int get_graph_widht()
+	{
+		return graph_widht;
+	}
+
+	int get_graph_height()
+	{
+		return graph_height;
+	}
+
+	int change_scale(double Xmin, double Xmax, double Ymin, double Ymax)
+	{
+		Xscale = (double)graph_widht / (Xmax - Xmin);
+		Yscale = (double)graph_height / (Ymax - Ymin);
+		X_axis_coord = (-Ymin) * (double)Yscale;
+		Y_axis_coord = (-Xmin) * (double)Xscale;
+		return 0;
+	}
+
 
 	int draw_function_line(double x1, double x1_value, double x2, double x2_value, ALLEGRO_COLOR line_color)
 	{
@@ -92,7 +112,7 @@ public:
 		return 0;
 	}
 };
-void recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step);
+void recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step, bool clear_all);
 int calc_function(Coordinate_system *cs, char expression[], char derivative_order, float step);
 int draw_function(Coordinate_system *cs, char expression[], char der_num);
 int expression_check(char expr[]);
@@ -106,6 +126,7 @@ int main(int argc, char **argv)
 {
 	srand(time(NULL));
 	char expr[1024] = {NULL};
+	Coordinate_system cs((GRAPH_WIDHT / 2), (GRAPH_HEIGHT / 2), 20, 20, GRAPH_HEIGHT, GRAPH_WIDHT);
 
 	if(argc < 2)
 	{
@@ -118,9 +139,9 @@ int main(int argc, char **argv)
 		do
 		{
 			printf("y = ");
-			fgets(expr, 1023, stdin);
+			//fgets(expr, 1023, stdin);
 			//printf("\n");
-			//strcat(expr, "2+2*sin(x)-e^x\n");
+			strcat(expr, "sinx\n");
 			//strcat(expr, "2*sinx+cos(4*x)+2*atanx\n");
 			//printf("%s", expr);
 		
@@ -143,47 +164,150 @@ int main(int argc, char **argv)
 		if(expression_check(expr))
 			return 0;
 	}
-
-
-	Coordinate_system cs((GRAPH_WIDHT / 2), (GRAPH_HEIGHT / 2), 20, 20, GRAPH_HEIGHT);
-	char number_of_derivatives = 0;
-	calc_function(&cs, expr, number_of_derivatives, 0.001);
-
 	allegro_initialization( GRAPH_WIDHT, GRAPH_HEIGHT );
+	al_draw_text(font, al_map_rgb(255, 255, 255), 30, 30, 0, "Processing...");
+	al_flip_display();
 	ALLEGRO_EVENT ev;
 
-	draw_empty_chart(cs.read_axis_coord('x'), cs.read_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs.read_scale_of_axis('x'), cs.read_scale_of_axis('y'));
-	//DRAWING OF MAIN FUNCTION - from left to the right
-	draw_function(&cs, expr, number_of_derivatives);
+	////CALCULATING OF VALUES AND DRAWING OF MAIN FUNCTION FOR THE FIRST TIME
+	recalculate_and_draw(&cs, expr, 0, 0.001, 1);
 
-	// HERE - WHAT U WANT TO DO NOW?
-	// if again - use int recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step)
-
+	//	LOOP TAKING CARE OF WHAT USER WANTS TO DO NEXT
 	while(1)
 	{
-		al_wait_for_event(event_queue, &ev);
-		if(ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE || (ev.type == ALLEGRO_EVENT_KEY_DOWN && (ev.keyboard.keycode == ALLEGRO_KEY_Q || ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)))
-			return 0;  //exit program
+		char option[128] = {0};
+		system("cls");
+		printf("What would you like to do now? (write number or keyword in brackets)\n");
+		printf("1. Draw [new] function instead of current one\n");
+		printf("2. Draw some [der]ivatives of current function\n");
+		printf("3. Draw [next] function on top for current one\n");
+		printf("4. Change [view] of current graph (scale, accuracy, axes position\n");
+		//printf("5. [Save] current image to file\n");
+		printf("6. [Exit] or [quit] or [q] \n> ");
+		fgets(option, 1023, stdin);
+		printf("---------------------------------------------------------\n");
+		if(strstr(option, "new") || strstr(option, "1"))
+		{
+			lowest_known_deriv_order = 0;
+			printf("Enter expression to draw  eg. sin(x) with one variable x or type q to quit\n");
+			printf("Type 'help' to see what you can build function of.\n");
+			printf("You can use: \n");
+			printf("\nUse * when multiplicating or it will not work. sin2x is bad, sin(2*x) is good.\n");
+			do
+			{
+				printf("y = ");
+				fgets(expr, 1023, stdin);		
+				if(option[0] == 'q')
+					break;	// jump out of while(1) loop -> go to end
+				else if(strstr(expr, "help"))
+				{
+					for(int i=1; Allowedstrings[i] != NULL; i++)
+						printf("%s ", Allowedstrings[i]);
+					printf("\n Now press any key\n");
+					continue;
+				}
+			} while(expression_check(expr));
+			al_clear_to_color(al_map_rgb(0, 0, 0));
+			al_draw_text(font, al_map_rgb(255, 255, 255), 30, 30, 0, "Calculating...");
+			al_flip_display();
+			recalculate_and_draw(&cs, expr, 0, 0.001, 1);
+			continue;
+		}
+		else if(strstr(option, "der") || strstr(option, "2"))	// user wants derivatives -> we read how many and draw them on what we had
+		{
+			char max_deriv_ord[128] = {NULL};
+			do
+			{
+				printf("Well, derivatives *TO* which order would you like to draw? 1-9\n");
+				fgets(max_deriv_ord, 127, stdin);
+			} while(max_deriv_ord[0] < 48 && max_deriv_ord[0] > 57);
+			number_of_derivatives = atoi(&max_deriv_ord[0]);
+			recalculate_and_draw(&cs, expr, number_of_derivatives, 0.001, 0);
+		}
+		else if(strstr(option, "next") || strstr(option, "3"))	//user wants next function on top
+		{
+			do
+			{
+				printf("y = ");
+				fgets(expr, 1023, stdin);		
+				if(expr[0] == 'q')
+					return 0;	// jump out of while(1) loop -> go to end
+				else if(strstr(expr, "help"))
+				{
+					for(int i=1; Allowedstrings[i] != NULL; i++)
+						printf("%s ", Allowedstrings[i]);
+					printf("\n Now press any key\n");
+					continue;
+				}
+			} while(expression_check(expr));
+			recalculate_and_draw(&cs, expr, 0, 0.001, 0);
+			continue;
+		}
+		else if(strstr(option, "view") || strstr(option, "4"))	//user wants to change view, he can change axes scale and position of orygin
+		{
+			char from[128], to[128];
+			float Xmin, Xmax, Ymin, Ymax;
+			printf("X axis from: ");
+			fgets(from, 127, stdin);
+			printf("X axis to  : ");
+			fgets(to, 127, stdin);
+			Xmin = atof(from);
+			Xmax = atof(to);
+			if((Xmax - Xmin) < 0)
+			{
+				printf("negative range - aborting\n");
+				system("pause");
+				break;
+			}
+
+			printf("Y axis from: ");
+			fgets(from, 127, stdin);
+			printf("Y axis to  : ");
+			fgets(to, 127, stdin);						
+			Ymin = atof(from);
+			Ymax = atof(to);	
+			if((Ymax - Ymin) < 0)
+			{
+				printf("negative range - aborting\n");
+				system("pause");
+				break;
+			}
+			cs.change_scale(Xmin, Xmax, Ymin, Ymax);
+			printf("Current settings: \nXscale: %f\nYscale: %f\nX_axis: %f\nY_axis: %f\n", cs.get_scale_of_axis('x'), cs.get_scale_of_axis('y'), cs.get_axis_coord('x'), cs.get_axis_coord('y'));
+			system("pause");
+			al_clear_to_color(al_map_rgb(0, 0, 0));
+			al_draw_text(font, al_map_rgb(255, 255, 255), 30, 30, 0, "Calculating...");
+			al_flip_display();
+			recalculate_and_draw(&cs, expr, 0, 0.001, 1);
+		}
+		else if(strstr(option, "exit") || strstr(option, "quit") || strstr(option, "6") || strstr(option, "q\n"))	//user wants to exit program
+		{
+			return 0;
+		}
+
+
+		//else if(strstr(expr, "save") || strstr(expr, "5"))
+
 	}
 	return 0;
 }
 
-void recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step)
+void recalculate_and_draw(Coordinate_system *cs, char expr[], char number_of_derivatives, float step, bool clear_all)
 {
 	calc_function(cs, expr, number_of_derivatives, 0.001);
-	draw_empty_chart(cs->read_axis_coord('x'), cs->read_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs->read_scale_of_axis('x'), cs->read_scale_of_axis('y'));
+	if(clear_all)
+		draw_empty_chart(cs->get_axis_coord('x'), cs->get_axis_coord('y'), GRAPH_WIDHT, GRAPH_HEIGHT, cs->get_scale_of_axis('x'), cs->get_scale_of_axis('y'));
 	draw_function(cs, expr, number_of_derivatives);
 }
-
 
 int calc_function(Coordinate_system *cs, char expression[], char derivative_order, float step)
 {
 	printf("Calculating... \n");
-	double min_arg = (-1) * (cs->read_axis_coord('y') - MARGIN ) * cs->calculate_diff_between_pixels_on_X_axis();
-	double max_arg = ( GRAPH_WIDHT - 2*MARGIN - cs->read_axis_coord('y') ) * cs->calculate_diff_between_pixels_on_X_axis();
+	double min_arg = (-1) * (cs->get_axis_coord('y') - MARGIN ) * cs->calculate_diff_between_pixels_on_X_axis();
+	double max_arg = ( GRAPH_WIDHT - 2*MARGIN - cs->get_axis_coord('y') ) * cs->calculate_diff_between_pixels_on_X_axis();
 	double current_value = 0;
 	function_map.clear();
-	for(int current_der_ord = 0; current_der_ord <= derivative_order; current_der_ord++)
+	for(int current_der_ord = lowest_known_deriv_order; current_der_ord <= derivative_order; current_der_ord++)
 	{
 		if(current_der_ord == 0)	// oryginal function
 		{
@@ -196,6 +320,7 @@ int calc_function(Coordinate_system *cs, char expression[], char derivative_orde
 		}
 		else	// derivatives of function
 		{
+			lowest_known_deriv_order++;
 			std::map<double, std::vector<double>>::iterator it, it_next, it_end;
 			it = it_next = function_map.begin();
 			it_end = function_map.end();
@@ -212,14 +337,13 @@ int calc_function(Coordinate_system *cs, char expression[], char derivative_orde
 				double a = (it_next->second[current_der_ord-1] - it->second[current_der_ord-1]) / (step);
 				it->second.push_back(a);
 			}
-			printf("%d. derivative done! \n");
+			/*printf("%d. derivative done! \n", );*/
 		}
 	}
 
 	return 0;
 }
 
-// TODO: dynamic accuracy, changing scale, more functions(x), movement of axis, description of visible functions
 
 int draw_function(Coordinate_system *cs, char expression[], char der_num)
 {
@@ -262,18 +386,6 @@ int draw_function(Coordinate_system *cs, char expression[], char der_num)
 
 	}
 
-	//double last_value, current_value;
-	//solveForX(expression, &last_value, 0.0);
-	//double pixel_unit = cs->calculate_diff_between_pixels_on_X_axis();
-	//number_of_calculations = 0;
-	//for(float arg_px=(-(cs->read_axis_coord('y'))); arg_px < GRAPH_WIDHT - cs->read_axis_coord('y'); arg_px += cs->read_accuracy())
-	//{
-	//	solveForX(expression, &current_value, arg_px*pixel_unit);
-	//	cs->draw_function_line(cs->read_axis_coord('y')+arg_px-1, cs->read_axis_coord('x')-last_value*cs->read_scale_of_axis('y'), cs->read_axis_coord('y')+arg_px, cs->read_axis_coord('x')-current_value*cs->read_scale_of_axis('y'), line_color);
-	//	last_value = current_value;
-	//}
-
-	//printf("Number of calcs: %d\n", number_of_calculations);
 	al_flip_display();
 	return 0;
 }
@@ -434,7 +546,7 @@ int allegro_initialization(int widht, int height)
 	ALLEGRO_EVENT ev;
  
 	al_init_primitives_addon();
-	//al_clear_to_color(al_map_rgb(0,0,20));
+	al_clear_to_color(al_map_rgb(0,0,20));
 	//al_flip_display();
 	return 0;
 }
